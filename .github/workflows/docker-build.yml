@@ -1,0 +1,96 @@
+name: Build Docker images
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - Dockerfile
+      - compose.yaml
+      - composer.json
+      - composer.lock
+      - app/**
+      - bootstrap/**
+      - config/**
+      - database/**
+      - resources/**
+      - routes/**
+      - tests/**
+      - docker/**
+      - .github/workflows/docker-build.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docker-build-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  docker:
+    name: Build, test, and export images
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Prepare isolated test configuration
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import base64, secrets
+          values = {
+              "APP_KEY": "base64:" + base64.b64encode(secrets.token_bytes(32)).decode(),
+              "DB_PASSWORD": secrets.token_hex(24),
+              "MYSQL_ROOT_PASSWORD": secrets.token_hex(24),
+          }
+          lines = Path(".env.example").read_text().splitlines()
+          Path(".env").write_text("\n".join(key + "=" + values[key] if (key := line.split("=", 1)[0]) in values else line for line in lines) + "\n")
+          Path(".local-data").mkdir(exist_ok=True)
+          PY
+          docker compose config --quiet
+
+      - name: Pull MySQL and build application images
+        run: |
+          docker compose pull db
+          docker compose build --pull app web
+
+      - name: Run PHP application tests in Docker
+        run: docker compose --profile test run --build --rm test
+
+      - name: Start MySQL, PHP-FPM and Nginx
+        run: |
+          docker compose up -d app web
+          docker compose exec -T app php artisan migrate --force
+          docker compose exec -T app php artisan db:seed --force
+          curl --fail --retry 15 --retry-delay 3 --retry-all-errors --silent --output /dev/null http://localhost:8080/admin/login
+          curl --fail --retry 15 --retry-delay 3 --retry-all-errors --silent --output /dev/null http://localhost:8080/warga/login
+          docker compose exec -T app php artisan migrate:status
+
+      - name: Export Docker images
+        run: |
+          mkdir -p image-artifact
+          docker save ipl-erte14-app:dev ipl-erte14-web:dev mysql:8.4 | gzip -1 > image-artifact/ipl-erte14-images.tar.gz
+          sha256sum image-artifact/ipl-erte14-images.tar.gz > image-artifact/SHA256SUMS
+          printf '%s\n' 'Source commit: ${{ github.sha }}' 'Images: ipl-erte14-app:dev, ipl-erte14-web:dev, mysql:8.4' 'Load with: docker load -i ipl-erte14-images.tar.gz' > image-artifact/BUILD.txt
+
+      - name: Upload image archive
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ipl-erte14-docker-images
+          path: image-artifact/
+          compression-level: 0
+          retention-days: 3
+          if-no-files-found: error
+
+      - name: Show container logs on failure
+        if: failure()
+        run: docker compose logs --no-color --tail=150
+
+      - name: Stop test containers
+        if: always()
+        run: docker compose down
