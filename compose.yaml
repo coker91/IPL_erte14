@@ -5,8 +5,8 @@ services:
     environment:
       MYSQL_DATABASE: ${DB_DATABASE:-ipl_erte14}
       MYSQL_USER: ${DB_USERNAME:-ipl}
-      MYSQL_PASSWORD: ${DB_PASSWORD:?Isi DB_PASSWORD di .env}
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Isi MYSQL_ROOT_PASSWORD di .env}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
     volumes:
       - mysql_data:/var/lib/mysql
     healthcheck:
