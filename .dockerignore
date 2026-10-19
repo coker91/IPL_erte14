@@ -12,3 +12,5 @@ storage/framework/sessions/*
 storage/framework/views/*
 database/*.sqlite*
 database/seeders/data/source-private.json
+
+bootstrap/cache/*.php

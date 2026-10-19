@@ -1,3 +1,5 @@
+param([switch]$UseExistingImages)
+
 $ErrorActionPreference = 'Stop'
 Set-Location (Split-Path $PSScriptRoot -Parent)
 function Invoke-Checked { param([string[]]$Arguments) & docker @Arguments; if ($LASTEXITCODE -ne 0) { throw "Docker gagal: $Arguments" } }
@@ -10,9 +12,14 @@ foreach ($key in @('DB_PASSWORD','MYSQL_ROOT_PASSWORD')) {
 if ($content -match '(?m)^APP_KEY=\s*$') { $secret=New-Secret; $content=[regex]::Replace($content,'(?m)^APP_KEY=\s*$',"APP_KEY=base64:$secret") }
 [IO.File]::WriteAllText((Join-Path (Get-Location) '.env'),$content,(New-Object System.Text.UTF8Encoding $false))
 New-Item -ItemType Directory -Force '.local-data' | Out-Null
-Invoke-Checked -Arguments @('compose','pull','db')
-Invoke-Checked -Arguments @('compose','build','--pull')
-Invoke-Checked -Arguments @('compose','up','-d')
+if ($UseExistingImages) {
+ Invoke-Checked -Arguments @('image','inspect','ipl-erte14-app:dev','ipl-erte14-web:dev','mysql:8.4')
+ Invoke-Checked -Arguments @('compose','up','-d','--no-build')
+} else {
+ Invoke-Checked -Arguments @('compose','pull','db')
+ Invoke-Checked -Arguments @('compose','build','--pull')
+ Invoke-Checked -Arguments @('compose','up','-d')
+}
 Invoke-Checked -Arguments @('compose','exec','app','php','artisan','migrate','--force')
 Invoke-Checked -Arguments @('compose','exec','app','php','artisan','db:seed','--force')
 Write-Host 'Siap. Lanjutkan: docker compose exec app php artisan ipl:create-admin'

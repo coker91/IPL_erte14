@@ -147,9 +147,23 @@ docker save -o ipl-erte14-images.tar ipl-erte14-app:dev ipl-erte14-web:dev mysql
 
 Perubahan source memerlukan build ulang karena image berisi salinan kode. Jangan menjalankan `docker compose down -v` kecuali memang ingin membuang volume database dan resi.
 
+## Image hasil GitHub Actions
+
+Workflow **Build Docker images** pada tab Actions membangun aplikasi/web, menjalankan pengujian, mencoba startup dengan MySQL, lalu menyimpan artifact **ipl-erte14-docker-images** jika semua langkah berhasil. Arsip berlaku 3 hari sejak build. Tidak berisi database atau data warga.
+
+Unduh artifact dari run yang berhasil, ekstrak ZIP, kemudian jalankan dari folder proyek:
+
+```powershell
+docker load -i .\ipl-erte14-images.tar.gz
+.\scripts\setup-docker.ps1 -UseExistingImages
+docker compose exec app php artisan ipl:create-admin
+```
+
+Opsi `-UseExistingImages` menggunakan image yang telah dimuat dan melewati build lokal. Akun admin serta snapshot warga tetap disiapkan pada komputer Anda seperti langkah sebelumnya.
+
 ## Validasi dan batas saat ini
 
 - Migrasi, seeder, impor snapshot, resource admin, formulir warga, login, otorisasi resi, verifikasi/pembalikan, dan penerbitan tagihan diuji dengan PHP 8.5 serta SQLite untuk test suite.
-- Compose divalidasi melalui CLI Compose. Docker daemon pada lingkungan pengerjaan menolak socket (`operation not permitted`), sehingga build image, pull image, MySQL container, dan startup end-to-end Docker belum bisa diuji di sini. Skrip setup menjalankan langkah tersebut di Docker Desktop Anda.
+- Build image dijalankan melalui [GitHub Actions](https://github.com/coker91/IPL_erte14/actions/runs/39197179492): image aplikasi/web berhasil dibuat, pengujian aplikasi di dalam Docker lulus, migrasi dan seeder MySQL berhasil, serta login admin/warga merespons HTTP 200. Ini pemeriksaan startup Docker; test suite domain masih menggunakan SQLite. Docker socket pada lingkungan percakapan diblokir sehingga build dieksekusi pada runner GitHub.
 - Tarif, jatuh tempo, kewajiban rumah kosong, hak akses final, dan tahun snapshot tetap perlu dikonfirmasi pengurus sebelum memakai data sebagai pencatatan operasional.
 - Belum ada OCR resi, integrasi bank, notifikasi WhatsApp otomatis, atau deployment internet. BRD dan rancangan database tetap tersedia pada `brd.md` dan `database-design.md`.
