@@ -1,7 +1,11 @@
 <?php
 
+use App\Providers\AppServiceProvider;
+use App\Providers\Filament\AdminPanelProvider;
+use App\Providers\Filament\WargaPanelProvider;
+
 return [
-    App\Providers\AppServiceProvider::class,
-    App\Providers\Filament\AdminPanelProvider::class,
-    App\Providers\Filament\WargaPanelProvider::class,
+    AppServiceProvider::class,
+    AdminPanelProvider::class,
+    WargaPanelProvider::class,
 ];

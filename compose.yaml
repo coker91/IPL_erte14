@@ -2,6 +2,8 @@ name: ipl-erte14
 services:
   db:
     image: mysql:8.4
+    ports:
+      - "127.0.0.1:3307:3306"
     environment:
       MYSQL_DATABASE: ${DB_DATABASE:-ipl_erte14}
       MYSQL_USER: ${DB_USERNAME:-ipl}

@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\ValidationException;
+use Spatie\Permission\Models\Role;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -21,6 +22,16 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Gate::before(fn (User $u, string $ability) => ! $u->is_active ? false : ($u->hasRole('super_admin') ? true : null));
+        Role::updating(function (Role $role) {
+            if ($role->isDirty('name') && in_array($role->getOriginal('name'), $this->systemRoles(), true)) {
+                $this->invalid('Nama role bawaan sistem tidak dapat diubah.');
+            }
+        });
+        Role::deleting(function (Role $role) {
+            if (in_array($role->name, $this->systemRoles(), true)) {
+                $this->invalid('Role bawaan sistem tidak dapat dihapus.');
+            }
+        });
         User::created(function (User $u) {
             if ($u->resident_id) {
                 $u->assignRole('warga');
@@ -99,5 +110,11 @@ class AppServiceProvider extends ServiceProvider
     private function invalid(string $message): never
     {
         throw ValidationException::withMessages(['data' => $message]);
+    }
+
+    /** @return list<string> */
+    private function systemRoles(): array
+    {
+        return ['super_admin', 'ketua_rt', 'wakil_rt', 'sekretaris', 'bendahara', 'pengurus', 'warga'];
     }
 }

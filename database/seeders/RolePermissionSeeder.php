@@ -26,7 +26,11 @@ class RolePermissionSeeder extends Seeder
             'warga' => [],
         ];
         foreach ($matrix as $r => $permissions) {
-            Role::findOrCreate($r, 'web')->syncPermissions($permissions);
+            $role = Role::findOrCreate($r, 'web');
+
+            if ($role->wasRecentlyCreated) {
+                $role->syncPermissions($permissions);
+            }
         }
         app(PermissionRegistrar::class)->forgetCachedPermissions();
     }

@@ -28,6 +28,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
+use Spatie\Permission\Models\Role;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\TestCase;
 
@@ -162,6 +163,20 @@ class IplTest extends TestCase
         }
         $this->get('/')->assertOk();
         $this->get('/admin/login')->assertRedirect();
+    }
+
+    public function test_shield_role_management_renders_and_seed_preserves_changes(): void
+    {
+        $admin = User::create(['name' => 'Admin', 'username' => 'admin', 'email' => 'admin@example.test', 'password' => 'test-password-strong']);
+        $admin->assignRole('super_admin');
+
+        $this->actingAs($admin)->get('/admin/shield/roles')->assertOk();
+
+        $role = Role::findByName('pengurus', 'web');
+        $role->givePermissionTo('payments.review');
+        $this->seed(DatabaseSeeder::class);
+
+        $this->assertTrue($role->fresh()->hasPermissionTo('payments.review'));
     }
 
     public function test_warga_form_and_login_render(): void
