@@ -1,0 +1,14 @@
+.git
+.github
+.env
+.env.*
+!.env.example
+vendor
+node_modules
+.local-data
+storage/logs/*
+storage/app/private/*
+storage/framework/sessions/*
+storage/framework/views/*
+database/*.sqlite*
+database/seeders/data/source-private.json

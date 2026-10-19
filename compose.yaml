@@ -1,0 +1,58 @@
+name: ipl-erte14
+services:
+  db:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE:-ipl_erte14}
+      MYSQL_USER: ${DB_USERNAME:-ipl}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?Isi DB_PASSWORD di .env}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Isi MYSQL_ROOT_PASSWORD di .env}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "MYSQL_PWD=$$MYSQL_PASSWORD mysql -h127.0.0.1 -u$$MYSQL_USER -D$$MYSQL_DATABASE -e 'SELECT 1'"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
+  app:
+    image: ipl-erte14-app:dev
+    build:
+      context: .
+      target: app
+    env_file: .env
+    environment:
+      DB_CONNECTION: mysql
+      DB_HOST: db
+      DB_PORT: 3306
+      APP_URL: http://localhost:8080
+      APP_ENV: local
+      IPL_SOURCE_FILE: /imports/ipl-source-snapshot.json
+    volumes:
+      - app_storage:/var/www/html/storage
+      - ./.local-data:/imports:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+  web:
+    image: ipl-erte14-web:dev
+    build:
+      context: .
+      target: web
+    ports:
+      - "127.0.0.1:8080:80"
+    depends_on:
+      - app
+    restart: unless-stopped
+  test:
+    profiles: [test]
+    build:
+      context: .
+      target: test
+    environment:
+      APP_ENV: testing
+    command: ["php", "artisan", "test"]
+volumes:
+  mysql_data:
+  app_storage:
